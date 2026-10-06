@@ -1,0 +1,1 @@
+import {Suspense} from 'react';import {LoginForm} from '@/components/login-form';export const metadata={title:'Sign in | Masar Customer Acquisition OS'};export default function Page(){return <Suspense fallback={<div className="auth-loading">Loading secure sign-in…</div>}><LoginForm/></Suspense>}
