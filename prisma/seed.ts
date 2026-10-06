@@ -1,6 +1,6 @@
 import {config} from 'dotenv';config({path:'.env.local'});
 import {PrismaPg} from '@prisma/adapter-pg';
-import {PrismaClient,VerificationState,LeadStage} from '../src/generated/prisma/client';
+import {PrismaClient,VerificationState,LeadStage} from '@prisma/client';
 import prospects from '../src/lib/prospects.json' with {type:'json'};
 const url=new URL(process.env.DATABASE_URL!);url.searchParams.delete('sslmode');url.searchParams.delete('pgbouncer');const connectionString=url.toString();const adapter=new PrismaPg({connectionString,ssl:{rejectUnauthorized:false}});const db=new PrismaClient({adapter});
 const verification=(v:string):VerificationState=>v==='Verified'?VerificationState.VERIFIED:v==='Partially Verified'?VerificationState.PARTIALLY_VERIFIED:v==='Requires Verification'?VerificationState.REQUIRES_VERIFICATION:VerificationState.UNKNOWN;
