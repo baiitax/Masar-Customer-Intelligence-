@@ -1,23 +1,400 @@
-generator client { provider = "prisma-client" output = "../src/generated/prisma" }
-datasource db { provider = "postgresql" }
-enum VerificationState { VERIFIED PARTIALLY_VERIFIED INFERRED UNKNOWN REQUIRES_VERIFICATION }
-enum LeadStage { RESEARCH VERIFIED QUALIFIED CONTACTED ENGAGED MEETING OPPORTUNITY NEGOTIATION WON LOST }
-enum MessageState { DRAFT APPROVED SCHEDULED SENT DELIVERED FAILED REJECTED SUPPRESSED }
-model Organization { id String @id @default(uuid()) name String users User[] companies Company[] campaigns Campaign[] createdAt DateTime @default(now()) }
-model User { id String @id @default(uuid()) organizationId String organization Organization @relation(fields:[organizationId],references:[id]) email String displayName String role String active Boolean @default(true) leads Lead[] auditLogs AuditLog[] @@unique([organizationId,email]) }
-model Company { id String @id @default(uuid()) organizationId String organization Organization @relation(fields:[organizationId],references:[id]) prospectId String name String legalName String? country String @default("Saudi Arabia") city String? website String? industry String? businessType String? procurementCategory String? sourceUrl String? verification VerificationState @default(UNKNOWN) confidence Int? lastVerifiedAt DateTime? contacts Contact[] leads Lead[] intelligence IntelligenceItem[] opportunities Opportunity[] interests CustomerInterest[] createdAt DateTime @default(now()) @@unique([organizationId,prospectId]) @@index([organizationId,name]) }
-model Contact { id String @id @default(uuid()) companyId String company Company @relation(fields:[companyId],references:[id],onDelete:Cascade) fullName String @default("UNKNOWN") position String? department String? email String? phone String? whatsapp String? linkedinUrl String? verification VerificationState @default(UNKNOWN) confidence Int? suppressedAt DateTime? suppressionReason String? messages Message[] }
-model Lead { id String @id @default(uuid()) companyId String company Company @relation(fields:[companyId],references:[id]) ownerId String? owner User? @relation(fields:[ownerId],references:[id]) stage LeadStage @default(RESEARCH) priority String? score Int @default(0) scoreExplanation String? nextAction String? nextActionAt DateTime? createdAt DateTime @default(now()) }
-model Commodity { id String @id @default(uuid()) name String @unique interests CustomerInterest[] opportunities Opportunity[] }
-model CustomerInterest { companyId String company Company @relation(fields:[companyId],references:[id],onDelete:Cascade) commodityId String commodity Commodity @relation(fields:[commodityId],references:[id]) verification VerificationState @default(UNKNOWN) notes String? @@id([companyId,commodityId]) }
-model IntelligenceItem { id String @id @default(uuid()) companyId String company Company @relation(fields:[companyId],references:[id],onDelete:Cascade) information String sourceUrl String? sourceType String? dateFound DateTime? verification VerificationState confidence Int? createdAt DateTime @default(now()) }
-model Segment { id String @id @default(uuid()) name String filterDefinition Json active Boolean @default(true) }
-model Campaign { id String @id @default(uuid()) organizationId String organization Organization @relation(fields:[organizationId],references:[id]) name String status String goal String? steps CampaignStep[] messages Message[] createdAt DateTime @default(now()) }
-model CampaignStep { id String @id @default(uuid()) campaignId String campaign Campaign @relation(fields:[campaignId],references:[id],onDelete:Cascade) stepOrder Int channel String waitMinutes Int? configuration Json @@unique([campaignId,stepOrder]) }
-model Message { id String @id @default(uuid()) campaignId String? campaign Campaign? @relation(fields:[campaignId],references:[id]) contactId String contact Contact @relation(fields:[contactId],references:[id]) channel String state MessageState @default(DRAFT) subject String? body String providerMessageId String? idempotencyKey String @unique scheduledAt DateTime? sentAt DateTime? deliveredAt DateTime? error String? createdAt DateTime @default(now()) }
-model Followup { id String @id @default(uuid()) leadId String ownerId String? dueAt DateTime status String channel String? notes String? }
-model Opportunity { id String @id @default(uuid()) companyId String company Company @relation(fields:[companyId],references:[id]) commodityId String? commodity Commodity? @relation(fields:[commodityId],references:[id]) name String estimatedQuantity Decimal? estimatedValue Decimal? currency String? stage String probability Int? expectedClose DateTime? nextAction String? createdAt DateTime @default(now()) }
-model Automation { id String @id @default(uuid()) name String status String version Int @default(1) trigger Json actions Json createdAt DateTime @default(now()) }
-model Integration { id String @id @default(uuid()) provider String status String encryptedCredentials Bytes? lastSyncAt DateTime? createdAt DateTime @default(now()) }
-model AiGeneration { id String @id @default(uuid()) purpose String output String grounding Json status String createdAt DateTime @default(now()) }
-model AuditLog { id BigInt @id @default(autoincrement()) userId String? user User? @relation(fields:[userId],references:[id]) action String objectType String objectId String? previousValue Json? newValue Json? ip String? userAgent String? createdAt DateTime @default(now()) @@index([objectType,objectId]) }
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum VerificationState {
+  VERIFIED
+  PARTIALLY_VERIFIED
+  INFERRED
+  UNKNOWN
+  REQUIRES_VERIFICATION
+}
+
+enum LeadStage {
+  RESEARCH
+  VERIFIED
+  QUALIFIED
+  CONTACTED
+  ENGAGED
+  MEETING
+  OPPORTUNITY
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum MessageState {
+  DRAFT
+  APPROVED
+  SCHEDULED
+  SENT
+  DELIVERED
+  FAILED
+  REJECTED
+  SUPPRESSED
+}
+
+model Organization {
+  id        String     @id @default(uuid())
+  name      String
+  users     User[]
+  companies Company[]
+  campaigns Campaign[]
+  events    Event[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model User {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  displayName    String
+  role           String       @default("VIEWER")
+  active         Boolean      @default(true)
+  leads          Lead[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId, active])
+}
+
+model Company {
+  id                  String            @id @default(uuid())
+  organizationId      String
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  prospectId          String
+  name                String
+  legalName           String?
+  country             String            @default("Saudi Arabia")
+  city                String?
+  website             String?
+  industry            String?
+  businessType        String?
+  procurementCategory String?
+  sourceUrl           String?
+  verification        VerificationState @default(UNKNOWN)
+  confidence          Int?
+  lastVerifiedAt      DateTime?
+  contacts            Contact[]
+  leads               Lead[]
+  intelligence        IntelligenceItem[]
+  opportunities       Opportunity[]
+  interests           CustomerInterest[]
+  activities          Activity[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  deletedAt           DateTime?
+
+  @@unique([organizationId, prospectId])
+  @@index([organizationId, name])
+  @@index([organizationId, verification])
+}
+
+model Contact {
+  id                String            @id @default(uuid())
+  companyId         String
+  company           Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fullName          String            @default("UNKNOWN")
+  position          String?
+  department        String?
+  email             String?
+  phone             String?
+  whatsapp          String?
+  linkedinUrl       String?
+  preferredChannel  String?
+  decisionMaker     Boolean           @default(false)
+  verification      VerificationState @default(UNKNOWN)
+  confidence        Int?
+  suppressedAt      DateTime?
+  suppressionReason String?
+  messages          Message[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([companyId])
+  @@index([email])
+}
+
+model Lead {
+  id               String    @id @default(uuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ownerId          String?
+  owner            User?     @relation(fields: [ownerId], references: [id])
+  stage            LeadStage @default(RESEARCH)
+  priority         String?
+  score            Int       @default(0)
+  scoreExplanation Json?
+  nextAction       String?
+  nextActionAt     DateTime?
+  source           String?
+  followups        Followup[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  convertedAt      DateTime?
+
+  @@index([companyId])
+  @@index([ownerId, stage])
+  @@index([stage, score])
+}
+
+model Commodity {
+  id            String             @id @default(uuid())
+  name          String             @unique
+  interests     CustomerInterest[]
+  opportunities Opportunity[]
+}
+
+model CustomerInterest {
+  companyId    String
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  commodityId  String
+  commodity    Commodity         @relation(fields: [commodityId], references: [id])
+  verification VerificationState @default(UNKNOWN)
+  notes        String?
+  sourceUrl    String?
+
+  @@id([companyId, commodityId])
+}
+
+model IntelligenceItem {
+  id           String            @id @default(uuid())
+  companyId    String
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  information  String
+  sourceUrl    String?
+  sourceType   String?
+  dateFound    DateTime?
+  verification VerificationState
+  confidence   Int?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([companyId, verification])
+}
+
+model Segment {
+  id               String   @id @default(uuid())
+  organizationId   String
+  name             String
+  filterDefinition Json
+  active           Boolean  @default(true)
+  members          SegmentMember[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId, active])
+}
+
+model SegmentMember {
+  segmentId    String
+  segment      Segment  @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  companyId    String
+  calculatedAt DateTime @default(now())
+
+  @@id([segmentId, companyId])
+  @@index([companyId])
+}
+
+model Campaign {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  status         String       @default("DRAFT")
+  goal           String?
+  steps          CampaignStep[]
+  messages       Message[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, status])
+}
+
+model CampaignStep {
+  id            String   @id @default(uuid())
+  campaignId    String
+  campaign      Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  stepOrder     Int
+  channel       String
+  waitMinutes   Int?
+  configuration Json
+
+  @@unique([campaignId, stepOrder])
+}
+
+model Message {
+  id                String       @id @default(uuid())
+  campaignId        String?
+  campaign          Campaign?    @relation(fields: [campaignId], references: [id])
+  contactId         String
+  contact           Contact      @relation(fields: [contactId], references: [id])
+  channel           String
+  state             MessageState @default(DRAFT)
+  subject           String?
+  body              String
+  providerMessageId String?
+  idempotencyKey    String       @unique
+  scheduledAt       DateTime?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  error             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([campaignId, state])
+  @@index([contactId, createdAt])
+}
+
+model Followup {
+  id        String   @id @default(uuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  ownerId   String?
+  dueAt     DateTime
+  status    String   @default("OPEN")
+  priority  String   @default("NORMAL")
+  channel   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, dueAt])
+  @@index([leadId])
+}
+
+model Opportunity {
+  id                String     @id @default(uuid())
+  companyId         String
+  company           Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  commodityId       String?
+  commodity         Commodity? @relation(fields: [commodityId], references: [id])
+  name              String
+  estimatedQuantity Decimal?
+  estimatedValue    Decimal?
+  currency          String?
+  stage             String     @default("DISCOVERY")
+  probability       Int?
+  expectedClose     DateTime?
+  nextAction        String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([companyId, stage])
+}
+
+model Activity {
+  id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type      String
+  summary   String
+  metadata  Json?
+  actorId   String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}
+
+model Automation {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  status         String   @default("DRAFT")
+  version        Int      @default(1)
+  trigger        Json
+  actions        Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId, status])
+}
+
+model Integration {
+  id                   String   @id @default(uuid())
+  organizationId       String
+  provider             String
+  status               String   @default("NOT_CONNECTED")
+  encryptedCredentials Bytes?
+  lastSyncAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([organizationId, provider])
+}
+
+model AiGeneration {
+  id             String   @id @default(uuid())
+  organizationId String
+  purpose        String
+  output         String
+  grounding      Json
+  status         String   @default("DRAFT")
+  createdAt      DateTime @default(now())
+}
+
+model Event {
+  id               String       @id @default(uuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventType        String
+  entityType       String
+  entityId         String
+  actorId          String?
+  payload          Json?
+  processingStatus String       @default("PENDING")
+  createdAt        DateTime     @default(now())
+
+  @@index([organizationId, eventType, createdAt])
+  @@index([entityType, entityId])
+}
+
+model AuditLog {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  action         String
+  objectType     String
+  objectId       String?
+  previousValue  Json?
+  newValue       Json?
+  source         String?
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([objectType, objectId])
+}
+
+model Job {
+  id          String   @id @default(uuid())
+  organizationId String
+  type        String
+  priority    String   @default("NORMAL")
+  status      String   @default("QUEUED")
+  entityType  String?
+  entityId    String?
+  payload     Json?
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(4)
+  error       String?
+  retryAt     DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, priority, createdAt])
+  @@index([organizationId, type])
+}
